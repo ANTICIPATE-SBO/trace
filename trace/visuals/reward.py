@@ -1,19 +1,34 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from trace.core import TrajectoryManager
 
-def pareto_2d(points: np.ndarray, ground_truth: np.ndarray|None = None, title: str|None = None):
-    assert points.shape[1] == 2, f'Visualization not possible for {points.shape[1]} dimensions'
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(points[:, 0], points[:, 1], s=40, label="Coverage set")
+def pareto_front(manager:TrajectoryManager, medoid:tuple|None=None, noise:bool=True, color:str='red', title:str|None=None):
+    _, _, rewards = manager.conditioning_features()
 
-    if ground_truth is not None:
-        assert ground_truth.shape[1] == 2,\
-            f'Visualization not possible for {ground_truth.shape[1]} dimensions (ground truth)'
-        ax.scatter(ground_truth[:, 0], ground_truth[:, 1], s=40, label="Ground truth pareto")
+    if rewards.shape[1] == 2:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    elif rewards.shape[1] == 3:
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111, projection='3d')
+    else:
+        raise ValueError(f'Visualization only supports 2D or 3D rewards, got {rewards.shape[1]} dimensions')
+
+    if noise:
+        jitter = 0.005 * (rewards.max(axis=0) - rewards.min(axis=0))
+        rewards = rewards + np.random.normal(0, jitter, rewards.shape)
+
+    if medoid is None:
+        ax.scatter(rewards[:, 0], rewards[:, 1], *([rewards[:, 2]] if rewards.shape[1] == 3 else []),
+                   s=40, color=color, alpha=1.0)
+    else:
+        ax.scatter(rewards[:, 0], rewards[:, 1], *([rewards[:, 2]] if rewards.shape[1] == 3 else []),
+                   s=40, color='grey', alpha=1.0)
+        medoid_reward = medoid[2]
+        ax.scatter(medoid_reward[0], medoid_reward[1], *( [medoid_reward[2]] if rewards.shape[1] == 3 else []),
+                   s=40, color=color, alpha=1.0, label="Medoid")
 
     ax.grid()
-    ax.legend()
     if title: ax.set_title(title)
     fig.tight_layout()
     return fig
