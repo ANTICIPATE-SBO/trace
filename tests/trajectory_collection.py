@@ -1,6 +1,3 @@
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning)
-
 import os
 os.chdir('..')
 
@@ -18,7 +15,7 @@ def ground_truth(manager:TrajectoryManager, save:bool=True):
 
     if 'minetrain' in file_prefix:
         _, env = initialize_setting(env_id=env_id, minetrain=True)
-        manager.load(minetrain_gt(env), pareto=True)
+        manager.load(minetrain_gt(env))
 
     elif 'deep-sea-treasure' in env_id:
         _, env = initialize_setting(env_id=env_id, minetrain=True)
@@ -48,7 +45,10 @@ def ipro_samples(manager:TrajectoryManager, iter_steps:int, save:bool=True, verb
         iter_total_timesteps=iter_steps,
         num_steps=manager.metadata['num_steps'],
         log=False,
-        gamma=manager.metadata['gamma'])
+        gamma=manager.metadata['gamma'],
+        aug=0.2,
+        reset_agent=True
+    )
     if verbose: print('Initialized algorithm')
 
     pareto_set = ipro.train(
@@ -56,15 +56,23 @@ def ipro_samples(manager:TrajectoryManager, iter_steps:int, save:bool=True, verb
         ref_point=manager.metadata['ref_point'],
         deterministic=True,
         eval_episodes=manager.metadata['eval_episodes'],
+        extrema=(manager.metadata['nadir'], manager.metadata['ideal']),
     )
 
-    manager.load([traj for _, _, traj in pareto_set])
+    manager.load([traj for _, _, traj in pareto_set], split=False)
     if save: manager.save(f"data/{manager.metadata['file_prefix']}_ipro.json")
     return manager
 
 
+
 if __name__ == '__main__':
-    #ipro_samples(safe_load(open('trace/configs/minetrain.yaml')), iter_steps=10_000_000)
+    #ipro_manager = ipro_samples(TrajectoryManager('dst-conc'), iter_steps=500_000)
+    #ipro_manager = TrajectoryManager('dst-conc').load('ipro', pareto=True)
+    #obs, acs, rew = ipro_manager.conditioning_features(per_point=True)
+    #print('Example point: ', obs[-1])
+    #print('Length of points: ', [len(point) for point in obs])
+    #print('Pareto points:')
+    #for r in rew: print(r)
     gt_manager = ground_truth(TrajectoryManager('minetrain'))
     print('Number of trajectories: ', len(gt_manager))
-    obs, acs, _ = gt_manager.conditioning_features(per_point=False)
+    #obs, acs, _ = gt_manager.conditioning_features(per_point=False)

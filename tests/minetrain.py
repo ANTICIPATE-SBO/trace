@@ -5,8 +5,9 @@ import numpy as np
 np.set_printoptions(suppress=True, precision=4)
 
 from yaml import safe_load
-from trace.policies import path_playout, initialize_setting
+from trace.policies import path_playout, initialize_setting, perform_action
 from trace.core import TrajectoryManager
+from trace.visuals import trajectory_grid
 
 
 def integration(path:list, steps:list):
@@ -21,14 +22,9 @@ def integration(path:list, steps:list):
         print('reward: ', r)
 
 
-def ipro_debug():
-    from visuals import grid_trajectories
-    from trace.policies.auxiliary import perform_action
-
-    sample_index = 25
-
+def ipro_debug(sample_index:int=25):
     manager = TrajectoryManager('minetrain').load('ipro')
-    grid_trajectories(manager.subset([i==sample_index for i in range(len(manager))]), alpha=1, color='red').show()
+    trajectory_grid(manager.subset([i == sample_index for i in range(len(manager))]), alpha=1, color='red').show()
 
     _, env = initialize_setting(manager.metadata, minetrain=True)
     obs, _ = env.reset()
@@ -39,10 +35,9 @@ def ipro_debug():
         env, terminated = perform_action(env, action, trajectory)
 
     manager = TrajectoryManager(manager.metadata).load([[trajectory]])
-    grid_trajectories(manager, alpha=1, color='blue').show()
+    trajectory_grid(manager, alpha=1, color='blue').show()
 
     print('Playout completed\n')
-
 
 
 if __name__ == '__main__':

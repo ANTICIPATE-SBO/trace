@@ -2,18 +2,17 @@ import os
 os.chdir('../')
 
 from collections.abc import Callable
-from yaml import safe_load
 
-from trace.behavior import EmpiricalDistribution, distance_matrix, quantize
+from trace.behavior import EmpiricalDistribution, distance_matrix, quantization_mapping, apply_quantization
 from trace.clustering import k_medoids
 from trace.core import TrajectoryManager
 
 
 def behavior_clustering(manager:TrajectoryManager, cluster:Callable, k:int, metric:str, save:bool=True):
     obs, acs, rew = manager.conditioning_features(per_point=False)
-    obs = quantize(obs, method='uni', bins=[100, 100, 6, 10, 10, 90, 90])
+    #obs = apply_quantization(obs, quantization_mapping(obs, method='eq', bins=[100, 100, 6, 10, 10, 90, 90]))
 
-    behavior_models = [EmpiricalDistribution(manager.metadata, alpha=0.5).fit(o, a) for o, a in zip(obs, acs)]
+    behavior_models = [EmpiricalDistribution(manager.metadata).fit(o, a) for o, a in zip(obs, acs)]
     features = distance_matrix(behavior_models, metric=metric, norm=True)
     labels, medoid_indices = cluster(features, k=k, metric='precomputed', return_medoids=True)
 
@@ -29,5 +28,8 @@ def behavior_clustering(manager:TrajectoryManager, cluster:Callable, k:int, metr
 
     return [manager.subset(labels == l) for l in range(k)], labels
 
+def silhouette():
+    return NotImplemented
+
 if __name__ == '__main__':
-    behavior_clustering(TrajectoryManager('minetrain').load('ground_truth'), k_medoids, k=5, metric='kl')
+    behavior_clustering(TrajectoryManager('dst-conc').load('ground_truth'), k_medoids, k=10, metric='kl')
