@@ -11,8 +11,10 @@ def seg_angle(a, b):
     angle = np.arctan2(dy, dx)
     return (np.degrees(angle) + 360) % 360
 
+
 def angle_subtr(a:float, b:float):
     return (180 + b - a) % 360 - 180
+
 
 def seg_proj(point, a, b, eps:float=1e-8):
     point, a, b = np.array(point), np.array(a), np.array(b)

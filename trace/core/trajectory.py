@@ -16,10 +16,11 @@ class TrajectoryManager:
         self.gamma = self.metadata['gamma']
         self.trajectories = []
 
-    def load(self, source:str|list, pareto:bool=False, duplicates:bool=False, split:bool=True):
+    def load(self, source:str|list, pareto:bool=True, duplicates:bool=False, split:bool=True):
         if isinstance(source, str):
             filepath = path.join('data/', self.metadata['file_prefix']) + f'_{source}.json'
             self.trajectories = load(open(filepath, 'rb'))
+            self.metadata['policy'] = source
         elif isinstance(source, list): self.trajectories = source
         else: raise ValueError(f'Unknown source type: {type(source)}')
 
@@ -31,8 +32,13 @@ class TrajectoryManager:
         return self
 
     def subset(self, labels: list|np.ndarray):
-        new_trajectories = [point for point, l in zip(self.trajectories, labels) if l]
-        return TrajectoryManager(metadata=self.metadata).load(new_trajectories)
+        if len(labels) < len(self):
+            mask = [False] * len(self)
+            for i in labels: mask[i] = True
+        elif len(labels) == len(self): mask = labels
+        else: raise ValueError(f'Length mismatch, too many labels')
+
+        return TrajectoryManager(metadata=self.metadata).load([t for t, m in zip(self.trajectories, mask) if m])
 
     def _verify_data(self):
         action_seq = self.sequence(key='actions', per_point=False, pad=None)
@@ -40,6 +46,10 @@ class TrajectoryManager:
 
     def __len__(self):
         return len(self.trajectories)
+
+    def __getitem__(self,i):
+        states, actions, rewards = self.conditioning_features()
+        return states[i], actions[i], rewards[i]
 
     def accrue(self, key: str='rewards', gamma: float|None=None):
         if gamma is None: gamma = self.gamma
@@ -50,43 +60,20 @@ class TrajectoryManager:
             for point in self.trajectories
         ])
 
-    def sequence(self, key:str='actions', pad:int|None=None, per_point:bool=False):
-        if per_point:
-            seq = [[trajectory[key] for trajectory in point] for point in self.trajectories]
-        else:
-            seq = [trajectory[key] for point in self.trajectories for trajectory in point]
-
-        if pad: return np.array(homogenize(seq))
+    def sequence(self, key:str='actions', per_point:bool=False):
+        seq = [[t[key] for t in point] for point in self.trajectories] if per_point \
+            else [t[key] for point in self.trajectories for t in point]
         return seq
 
-    def conditioning_features(self, pad: int|None=None, per_point:bool=False, gamma:float|int|None=None, ):
-        obs = self.sequence(key='observations', pad=pad, per_point=per_point)
-        acs = self.sequence(key='actions', pad=pad, per_point=per_point)
-        rew = self.accrue(key='rewards', gamma=gamma)
+    def conditioning_features(self, per_point:bool=False, accrue:bool=False, gamma:float|int|None=None, ):
+        obs = self.sequence(key='observations', per_point=per_point)
+        acs = self.sequence(key='actions', per_point=per_point)
+        rew = self.accrue(key='rewards', gamma=gamma) if accrue \
+            else self.sequence(key='rewards', per_point=per_point)
         return obs, acs, rew
 
     def save(self, filepath: str):
         with open(filepath, 'w') as f: f.write(dumps(self.trajectories, indent=2))
-
-
-def homogenize(array:list, pad:int=-1):
-    def homogenous_shape(x):
-        if not isinstance(x, list): return ()
-        sub_array = [homogenous_shape(i) for i in x]
-        return (len(x),) + tuple(
-            max((s[d] if d < len(s) else 0) for s in sub_array)
-            for d in range(max(map(len, sub_array), default=0))
-        )
-
-    def fill(x, shp:tuple):
-        if not shp: return x
-        x = x if isinstance(x, list) else []
-        return [
-            fill(x[i] if i < len(x) else pad, shp[1:])
-            for i in range(shp[0])
-        ]
-
-    return fill(array, homogenous_shape(array))
 
 
 def filter_duplicates(array:list, sort:bool=True):
