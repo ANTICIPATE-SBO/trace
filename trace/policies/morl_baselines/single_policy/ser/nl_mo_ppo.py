@@ -449,7 +449,7 @@ class NLMOPPO(MOPolicy):
             })
 
             pareto_point += accrued_reward
-
+        assert len(trajectories) == 1, f"{len(trajectories)} != {eval_episodes}"
         return pareto_point / eval_episodes, trajectories
 
     def train(

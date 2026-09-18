@@ -401,15 +401,17 @@ class OuterLoop(MOAgent):
         eval_env: gym.Env,
         ref_point: np.ndarray,
         deterministic: bool = False,
-        extrema: Optional[tuple[np.ndarray, np.ndarray]] = None,
+        extrema: Optional[tuple[np.ndarray|list, np.ndarray|list]] = None,
         callback: Optional[IPROCallback] = None,
         eval_episodes: int = 100,
     ) -> list[tuple[np.ndarray, Any]]:
         """Solve the problem."""
         self.ref_point = ref_point
+        if extrema is not None: extrema = np.array(extrema[0]), np.array(extrema[1])
 
         start = self.setup()
-        linear_subsolutions, done = self.init_phase(extrema=extrema, deterministic=deterministic, eval_env=eval_env)
+        linear_subsolutions, done = self.init_phase(extrema=extrema, deterministic=deterministic,
+                                                    eval_env=eval_env, eval_episodes=eval_episodes)
         iteration = 0
 
         if done:
@@ -448,6 +450,7 @@ class OuterLoop(MOAgent):
             self.update_excluded_volume()
             self.estimate_error()
             self.coverage = (self.dominated_hv + self.discarded_hv) / self.total_hv
+            print(f'Dominated {self.dominated_hv}, Discarded {self.discarded_hv}, Coverage {self.coverage:.5f}')
             self.hv = self.compute_hypervolume(-self.sign * self.pf, -self.sign * self.ref_point)
 
             iteration += 1

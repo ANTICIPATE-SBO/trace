@@ -201,6 +201,7 @@ class IPRO(OuterLoop):
 
         self.bounding_box = Box(self.nadir, self.ideal)
         self.total_hv = self.bounding_box.volume
+        print('Total HV: ', self.total_hv)
         self.lower_points = np.array([self.nadir])
 
         for point in self.pf:  # Initialise the lower points.
@@ -334,3 +335,4 @@ class IPRO(OuterLoop):
         """Update the excluded volume based on the completed solutions."""
         self.dominated_hv = self.compute_hypervolume(-self.pf, -self.nadir)
         self.discarded_hv = self.compute_hypervolume(np.vstack((self.pf, self.completed)), self.ideal)
+        print(f'Discarded from points: {self.pf} {self.completed} with reference {self.ideal}')
