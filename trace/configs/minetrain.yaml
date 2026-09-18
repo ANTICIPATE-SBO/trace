@@ -17,3 +17,5 @@ gamma: 1.
 num_steps: 1000
 tolerance: 1e-15
 eval_episodes: 100
+extrema: ([0., 0., -200.], [1.5, 1.5, 0.])
+quant_bins: [100, 100, 6, 10, 10, 90, 90]

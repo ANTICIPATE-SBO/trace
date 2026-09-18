@@ -1,5 +1,6 @@
 #file: noinspection YAMLSchemaValidation
 env_id: 'deep-sea-treasure-concave-v0'
+frame_dir: 'plots/sketches/dst_frame_abstr.png'
 ref_point: [0, -50]
 file_prefix: 'dst'
 actions:
@@ -14,9 +15,11 @@ action_mapping:
   3: [0, 1]
 reward_dim: (2,)
 observations_features: [ 'y', 'x' ]
-observations_high: [ 11, 11 ]
-observations_low: [ 0, 0 ]
+obs_high: [ 11, 11 ]
+obs_low: [ 0, 0 ]
 gamma: 1.0
 num_steps: 50
 tolerance: 0
 eval_episodes: 1
+nadir: [0,-50]
+ideal: [124,0]
