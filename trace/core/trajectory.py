@@ -41,7 +41,7 @@ class TrajectoryManager:
         return TrajectoryManager(metadata=self.metadata).load([t for t, m in zip(self.trajectories, mask) if m])
 
     def _verify_data(self):
-        action_seq = self.sequence(key='actions', per_point=False, pad=None)
+        action_seq = self.sequence(key='actions', per_point=False)
         assert all(a in self.metadata['actions'] for ep in action_seq for a in ep)
 
     def __len__(self):
