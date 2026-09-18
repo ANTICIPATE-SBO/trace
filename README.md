@@ -28,7 +28,7 @@ import numpy as np
 from trace.core import TrajectoryManager
 from trace.behavior import EmpiricalDistribution, distance_matrix, quantize
 from trace.clustering import k_medoids
-from trace.visuals import temporal_alignment, grid_trajectories
+from trace.visuals import temporal_alignment, trajectory_grid
 
 # Trajectory loading (precomputed)
 manager = TrajectoryManager('minetrain').load('ground_truth', pareto=True)
@@ -47,7 +47,7 @@ clusters = [manager.subset(np.array(labels) == l) for l in range(k)]
 # Intuitive plots
 for c, cluster in enumerate(clusters):
     temporal_alignment(cluster, title=f'Cluster {c}').show()
-    grid_trajectories(cluster, title=f'Cluster {c}').show()
+    trajectory_grid(cluster, title=f'Cluster {c}').show()
 
 ```
 
