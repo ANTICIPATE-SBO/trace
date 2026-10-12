@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.mixture import GaussianMixture, BayesianGaussianMixture
 from sklearn_extra.cluster import KMedoids
+from typing import Callable
 
 
 def k_means(data, k: int = 3):
@@ -10,7 +11,7 @@ def k_means(data, k: int = 3):
     return kmeans.labels_
 
 
-def k_medoids(data, k: int = 3, metric: str = "cosine", return_medoids:bool=False):
+def k_medoids(data, k:int=3, metric:str|Callable="cosine", return_medoids:bool=True):
     kmedoids = KMedoids(n_clusters=k, metric=metric, init="k-medoids++")
     kmedoids.fit(data)
     if return_medoids: return kmedoids.labels_, kmedoids.medoid_indices_
@@ -46,8 +47,6 @@ def dirichlet_mixture(data, k: int = 20, covariance: str = "full", weight_concen
     )
 
     dpgmm.fit(data)
-    active = dpgmm.weights_ > 1e-3
-
     return reindex_clusters(dpgmm.predict(data))
 
 
@@ -61,17 +60,3 @@ def reindex_clusters(labels: np.ndarray):
     remap = {old: new for new, old in enumerate(unique)}
 
     return np.vectorize(remap.get)(labels)
-
-
-def cluster_connections(labels):
-    k, l = len(np.unique(labels[0])), len(np.unique(labels[1]))
-    source, target, value = [], [], []
-
-    for i in range(k):
-        for j in range(l):
-            count = np.sum((labels[0] == i) & (labels[1] == j))
-            if count > 0:
-                source.append(i)
-                target.append(k + j)
-                value.append(count)
-    return source, target, value
