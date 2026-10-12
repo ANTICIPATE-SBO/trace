@@ -1,13 +1,13 @@
 import os
-os.chdir('../')
-
-import numpy as np
-np.set_printoptions(suppress=True, precision=4)
+import sys
 
 from yaml import safe_load
 from trace.policies import path_playout, initialize_setting, perform_action
 from trace.core import TrajectoryManager
 from trace.visuals import trajectory_grid
+
+sys.path.insert(0, os.path.abspath('..'))
+os.chdir('../')
 
 
 def integration(path:list, steps:list):
@@ -40,8 +40,29 @@ def ipro_debug(sample_index:int=25):
     print('Playout completed\n')
 
 
+def dataset_overview():
+    manager = TrajectoryManager('minetrain').load('ipro', duplicates=True, )
+    trajectories = manager.trajectories
+    for point in trajectories:
+        for t in point:
+            print(t.keys())
+
+    print('points:', len(trajectories))
+    print('trajectories', len(trajectories[0]))
+    print('keys: ',len(trajectories[0][0]))
+    new_manager = TrajectoryManager('minetrain').load(trajectories)
+
+    obs, acs, rew = new_manager.conditioning_features()
+
+    for i, r in enumerate(rew):
+        print(i+1, r)
+
+
+
+
 if __name__ == '__main__':
-    ipro_debug()
+    dataset_overview()
+
 
 
 
