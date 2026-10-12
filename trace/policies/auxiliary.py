@@ -6,7 +6,7 @@ import numpy as np
 
 from core import same_point
 from trace.core import point_dist as point_dist
-from trace.policies.minetrain import MinecartTrailWrapper
+from trace.policies.minetrain import MinecartTrainWrapper
 
 
 def reachable_steps(sea_map: np.ndarray, action_mapping:dict, start:tuple=(0,0)):
@@ -109,6 +109,7 @@ def ore_limits(ore_totals:list, capacity:float=1.5):
         else:
             max_extra = int(ceil(capacity / total))
             max_steps.append(1 + max_extra)
+
     return max_steps
 
 
@@ -139,7 +140,7 @@ def mine_steps(ores: np.ndarray, capacity: float = 1.5):
     return valid_steps
 
 
-def perform_action(env:MinecartTrailWrapper, action:int, trajectory:dict):
+def perform_action(env:MinecartTrainWrapper, action:int, trajectory:dict):
     observations, reward, terminated, truncated, _ = env.step(action)
     trajectory['actions'].append(int(action))
     trajectory['observations'].append(observations.tolist())

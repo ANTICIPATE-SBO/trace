@@ -5,7 +5,7 @@ from mo_gymnasium.envs.minecart import minecart as minecart
 from trace.core import seg_angle, angle_subtr, point_dist, same_point
 from trace.policies.auxiliary import (reachable_steps, monotonic_paths, perform_action, visit_combinations,
                                       mine_steps, best_acc_steps, available_ores)
-from trace.policies.minetrain import MinecartTrailWrapper
+from trace.policies.minetrain import MinecartTrainWrapper
 
 def dst_gt(sea_map: np.ndarray, action_mapping: dict, start: tuple = (0,0)):
     steps = reachable_steps(sea_map, action_mapping, start)
@@ -21,7 +21,7 @@ def dst_gt(sea_map: np.ndarray, action_mapping: dict, start: tuple = (0,0)):
     return ground_truth
 
 
-def minetrain_gt(env:MinecartTrailWrapper):
+def minetrain_gt(env:MinecartTrainWrapper):
     mines, capacity, base = env.mines, env.capacity, env.base
     return [
         [path_playout(env, path, steps)]
@@ -35,7 +35,7 @@ def synthetic_stochastic_points(ground_truth: list, num: int=100, length: int=10
     return [choices(episodes, k=length) for _ in range(num)]
 
 
-def path_playout(env:MinecartTrailWrapper, path:list, steps:list):
+def path_playout(env:MinecartTrainWrapper, path:list, steps:list):
     obs, _ = env.reset()
     trajectory, terminated = {'observations': [obs.tolist()], 'actions': [], 'rewards': []}, False
 

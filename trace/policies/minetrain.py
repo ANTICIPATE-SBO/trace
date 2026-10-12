@@ -3,10 +3,10 @@ import numpy as np
 from gymnasium import Env, Wrapper, core
 import mo_gymnasium.envs.minecart.minecart as minecart
 
-from trace.core.maths import point_dist, seg_angle, seg_proj, angle_subtr, same_point, same_direction, network_edges
+from trace.core.maths import point_dist, seg_angle, seg_proj, angle_subtr, same_point, network_edges
 
 
-class MinecartTrailWrapper(Wrapper):
+class MinecartTrainWrapper(Wrapper):
     def __init__(self, env:Env[core.ObsType, core.ActType], tolerance:float=0.01):
         super().__init__(env)
         self.tolerance = tolerance
@@ -48,18 +48,12 @@ class MinecartTrailWrapper(Wrapper):
     def step(self, action):
         spin_allowed = self.at_node() is not None
         if not spin_allowed: self._lock_orientation()
-        """
-        if action == minecart.ACT_ACCEL:
-            print(f'\tenv: acc at {self.get_pos()} with {self.get_speed()}')
-        if action == minecart.ACT_BRAKE:
-            print(f'\tenv: brake at {self.get_pos()} with {self.get_speed()}')
-        """
+
         if self.on_trail and spin_allowed:
             self.on_trail = False
 
         elif self.on_trail and not spin_allowed:
             if action in (minecart.ACT_LEFT, minecart.ACT_RIGHT):
-                print('here')
                 action = minecart.ACT_NONE
 
         elif not self.on_trail and spin_allowed:
@@ -133,4 +127,8 @@ class MinecartTrailWrapper(Wrapper):
         return self.env.unwrapped.cart.speed
 
 
+def same_direction(ang1:float, ang2:float, tolerance:float=0.01):
+    forward = abs(angle_subtr(ang1, ang2)) < tolerance
+    backward = abs(angle_subtr(ang1 + 180, ang2)) < tolerance
+    return forward or backward
 
