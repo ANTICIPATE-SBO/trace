@@ -1,44 +1,70 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import networkx as nx
 
-from sklearn.tree import DecisionTreeClassifier
-from collections import Counter
+from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import MaxNLocator
 
 from trace.core import TrajectoryManager
-from trace.visuals.utils import tsne_transform, tree_to_graph, tree_features
+from trace.visuals.utils import tsne_transform, masked_matrix
 
 
-def temporal_alignment(manager:TrajectoryManager, time_range:tuple|None=None, title:str|None=None):
+def temporal_alignment(manager:TrajectoryManager, time_range:tuple|None=None, title:str|None=None, return_ax:bool=False):
     action_names = manager.metadata['actions']
     action_seq = manager.sequence(key='actions', per_point=False)
-    if time_range:
-        start, end = time_range
-        max_len = end - start
-    else:
-        max_len = max(len(seq) for seq in action_seq)
-        start, end = 0, max_len - 1
+    action_mat = masked_matrix(action_seq, time_range)
 
-    matrix = np.full((len(action_seq), max_len), fill_value=-1)
-    for i, seq in enumerate(action_seq):
-        for j in range(start, min(end, len(seq))):
-            matrix[i, j - start] = seq[j]
-    masked_matrix = np.ma.masked_where(matrix == -1, matrix)
+    cmap = plt.colormaps['viridis'].resampled(len(action_names))
+    cmap.set_bad(color='white')
 
-    cmap = plt.colormaps.get_cmap('viridis').resampled(len(action_names))
-    cmap.set_bad(color='black')
-    fig, ax = plt.subplots()
-    im = ax.imshow(masked_matrix, aspect='auto', cmap=cmap, interpolation='nearest')
+    fig, ax = plt.subplots(figsize=(16, 6))
+    norm = BoundaryNorm(np.arange(len(action_names) + 1) - 0.5, cmap.N)
+    im = ax.imshow(action_mat, aspect='auto', cmap=cmap, norm=norm, interpolation='nearest')
 
     ticks, labels = list(action_names.keys()), list(action_names.values())
-    fig.colorbar(im, ax=ax, ticks=ticks).ax.set_yticklabels(labels)
+    cbar = fig.colorbar(im, ax=ax, ticks=ticks, orientation='horizontal', location='bottom')
+    cbar.ax.set_xticklabels(labels, fontsize=25)
 
-    if title: ax.set_title(title)
-    xticks = np.linspace(start, end - 1, 5, dtype=int)
-    ax.set(xlabel='Time steps', yticks=[], xticks=xticks, xticklabels=xticks)
+    ax.set_yticks([])
+    ax.set_xlabel('Time steps', fontsize=25)
+    ax.tick_params(axis='x', labelsize=15)
+
+    if title: ax.set_title(title, fontsize=25)
     fig.tight_layout()
+    return (fig, ax) if return_ax else fig
+
+
+def common_temporal(clusters: list[TrajectoryManager]):
+    time_range = (0, max(len(traj[0]) for cluster in clusters for traj in cluster))
+
+    fig, new_axs = plt.subplots(len(clusters), ncols=1, sharex=True, figsize=(18, 3 * len(clusters)),)
+    new_axs = np.atleast_1d(new_axs)
+
+    for c, cluster in enumerate(clusters):
+        old_fig, ax = temporal_alignment(cluster, time_range=time_range, return_ax=True,)
+
+        if len(old_fig.axes) > 1: old_fig.delaxes(old_fig.axes[1])
+        im = ax.images[0]
+        new_axs[c].imshow(im.get_array(), aspect='auto', cmap=im.get_cmap(), norm=im.norm, interpolation='nearest',)
+        new_axs[c].set_yticks([])
+
+        new_axs[c].set_ylabel(f'Cluster {c}', fontsize=25)
+
+        if c < len(clusters) - 1:
+            new_axs[c].tick_params(axis='x', labelbottom=False)
+        else:
+            ticks = list(cluster.metadata['actions'].keys())
+            labels = list(cluster.metadata['actions'].values())
+
+            new_axs[c].set_xlabel('Time steps', fontsize=25)
+            new_axs[c].tick_params(axis='x', labelsize=20)
+
+        new_axs[c].set_xlim(ax.get_xlim())
+
+    cbar = fig.colorbar(im, ax=new_axs, ticks=ticks, orientation='horizontal', location='bottom')
+    cbar.ax.set_xticklabels(labels, fontsize=25)
     return fig
+
 
 
 def cluster_scatter(features:np.ndarray, labels:list, colors:list, title:str|None=None, precomputed:bool=True):
@@ -57,28 +83,6 @@ def cluster_scatter(features:np.ndarray, labels:list, colors:list, title:str|Non
     return fig
 
 
-def decision_tree(manager:TrajectoryManager, max_depth:int=8, collapse:bool=True, title:str|None=None):
-    obs, acs, _ = manager.conditioning_features()
-    assert len(obs) == len(acs), f'Length mismatch {len(obs)} != {len(acs)}.'
-    obs, acs = tree_features(obs, acs)
-    clf = DecisionTreeClassifier(max_depth=max_depth, min_samples_leaf=20, ccp_alpha=0.01).fit(obs, acs)
-
-    features, actions = manager.metadata['observations_features'], manager.metadata['actions']
-    graph, nodes, edges, _ = tree_to_graph(clf.tree_, clf.classes_, features, actions, collapse=collapse)
-    pos = nx.drawing.nx_pydot.graphviz_layout(graph, prog="dot")
-
-    fig, ax = plt.subplots()
-    nx.draw(graph, pos, ax=ax, with_labels=False, node_color='white',)
-    nx.draw_networkx_labels(graph, pos, labels=nodes, ax=ax)
-    nx.draw_networkx_edge_labels(graph, pos, edge_labels=edges, ax=ax)
-
-    ax.axis("off")
-    if title: ax.set_title(title)
-    fig.tight_layout()
-
-    return fig
-
-
 def heatmap(h:np.ndarray, visited:list|None=None, shape:tuple=(11, 11), title:str|None=None):
     if visited:
         assert len(visited) == len(h), f'Length mismatch {len(visited)} != {len(h)}.'
@@ -89,21 +93,47 @@ def heatmap(h:np.ndarray, visited:list|None=None, shape:tuple=(11, 11), title:st
     square = shape[0] == shape[1]
     fig, ax = plt.subplots()
     sns.heatmap(heat, ax=ax, square=square, cbar=True)
-    ax.tick_params(labelbottom=False, labelleft=False)
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     if title: ax.set_title(title)
     fig.tight_layout()
     return fig
 
 
-def distribution_bar(arr:list|np.ndarray, title:str|None=None, y_range:tuple|None=None):
-    keys, vals = zip(*Counter(arr).items())
-    fig, ax = plt.subplots()
-    ax.bar(keys, vals, width=0.1)
-    ax.set(xlabel='Values', ylabel='Observed times')
-    from matplotlib.ticker import MaxNLocator
-    ax.xaxis.set_major_locator(MaxNLocator(10))
+def distribution_bar(arrays:np.ndarray|list, labels:list, y_range=None,
+                     title=None, ax_args:dict|None=None):
+    assert len(arrays) == len(labels), f'Length mismatch {len(arrays)} == {len(labels)}.'
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    for arr, label in zip(arrays, labels):
+        sns.histplot(arr, kde=True, ax=ax, label=label,)
+    if ax_args is None: ax_args = {'xlabel': 'Distance', 'ylabel': 'Pairs of trajectories'}
+    ax.set(**ax_args)
+    ax.legend()
+
     if title: ax.set_title('Distribution: ' + title)
     if y_range is not None: ax.set_ylim(*y_range)
+
+    fig.tight_layout()
+    return fig
+
+
+def lineplot(med_dist:dict, title:str|None=None):
+    keys = list(med_dist.keys())
+    means = [np.mean(values) for values in med_dist.values()]
+    stds = [np.std(values) for values in med_dist.values()]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    sns.lineplot(x=keys, y=means, ax=ax, label='Mean')
+    ax.fill_between(keys, np.array(means) - stds, np.array(means) + stds, alpha=0.2, label='Standard Deviation')
+    ax.xaxis.set_major_locator(MaxNLocator(10))
+    ax.set_xlabel('Number of clusters', fontsize=18)
+    ax.set_ylabel('Medoid Distance', fontsize=18)
+    ax.tick_params(axis='both', labelsize=16)
+    ax.legend(fontsize=16)
+
+    if title: ax.set_title(title, fontsize=20)
     fig.tight_layout()
     return fig

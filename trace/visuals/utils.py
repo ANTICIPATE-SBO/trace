@@ -1,10 +1,10 @@
-from itertools import count
+from copy import deepcopy
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.tree import DecisionTreeClassifier, export_text
 
-from behavior import EmpiricalDistribution
+from trace.behavior import entropy
+from trace.core import all_ints
 
 
 def tsne_transform(data:list|np.ndarray, precomputed:bool=False, perplexity:int|None=None):
@@ -25,8 +25,7 @@ def tsne_transform(data:list|np.ndarray, precomputed:bool=False, perplexity:int|
 
 
 def env_frame(metadata:dict, abstr:bool=False):
-    env_id, frame_dir = metadata['env_id'], metadata['frame_dir']
-    if abstr and not frame_dir == '': return plt.imread(frame_dir)
+    if abstr and 'frame_dir' in metadata: return plt.imread(metadata['frame_dir'])
 
     import mo_gymnasium as mo_gym
     render_env = mo_gym.make(metadata['env_id'], render_mode="rgb_array")
@@ -35,83 +34,68 @@ def env_frame(metadata:dict, abstr:bool=False):
     return frame
 
 
-def tree_to_graph(tree, actions:dict, feature_names:dict, action_names:dict|None=None, collapse:bool=True, root:int=0):
-    graph = nx.DiGraph()
-    node_labels, edge_labels, node_ids = {}, {}, count()
-
-    def build(node_idx):
-        left, right = tree.children_left[node_idx], tree.children_right[node_idx]
-
-        if left == right:
-            pred = actions[np.argmax(tree.value[node_idx][0])]
-            node_id = next(node_ids)
-
-            graph.add_node(node_id)
-            node_labels[node_id] = str(action_names[pred]) if action_names else f"class = {pred}"
-            return node_id, pred
-
-        left_id, left_pred = build(left)
-        right_id, right_pred = build(right)
-
-        if collapse and left_pred == right_pred: return left_id, left_pred
-
-        node_id = next(node_ids)
-        graph.add_node(node_id)
-        node_labels[node_id] = f"{feature_names[tree.feature[node_idx]]} < {tree.threshold[node_idx]:.2f}"
-
-        graph.add_edge(node_id, left_id)
-        graph.add_edge(node_id, right_id)
-        edge_labels[(node_id, left_id)] = "yes"
-        edge_labels[(node_id, right_id)] = "no"
-
-        return node_id, None
-
-    root_id, _ = build(root)
-    return graph, node_labels, edge_labels, root_id
-
-
-def tree_features(obs:list|np.ndarray, acs:list|np.ndarray):
-    assert len(acs) == len(obs), f'Length mismatch {len(acs)} != {len(obs)}'
-
-    if len(obs[0]) == len(acs[0]) + 1: obs = [traj[:-1] for traj in obs]
-    obs = np.array([coords for traj in obs for coords in traj])
-    acs = np.array([action for traj in acs for action in traj])
-
-    return obs, acs
-
-
-def add_noise(x:list|np.array):
+def add_noise(x:list|np.ndarray):
     x = np.array(x)
-    assert x.ndim == 1
-    jitter = 0.005 * (max(x) - min(x))
+    jitter = 0.005 * (np.max(x) - np.min(x))
     return x + np.random.normal(0, jitter, x.shape)
 
 
-def decisive_features(dec:list|np.ndarray, states:list|np.ndarray, model:EmpiricalDistribution, percentile:float=0.25):
-    n_top = int(len(dec) * percentile)
-    top_idx = np.argsort(dec)[-n_top:][::-1]
-    top_states = np.array(states)[top_idx]
-    top_dec = np.array(dec)[top_idx]
+def masked_matrix(action_seq:list|np.ndarray, time_range:tuple|None, fill_value:int=-1):
+    if time_range:
+        start, end = time_range
+        max_len = end - start
+    else:
+        max_len = max(len(seq) for seq in action_seq)
+        start, end = 0, max_len - 1
 
-    tree_states, tree_actions = [], []
-    for s in top_states:
-        counts = model.counts[tuple(s)].astype(int)
-        for a, c in enumerate(counts):
-            if c == 0: continue
-            tree_states.extend([s.tolist()] * c)
-            tree_actions.extend([a] * c)
-
-    return top_states, top_dec, tree_states, tree_actions
+    matrix = np.full((len(action_seq), max_len), fill_value=fill_value)
+    for i, seq in enumerate(action_seq):
+        for j in range(start, min(end + 1, len(seq))):
+            matrix[i, j - start] = seq[j]
+    return np.ma.masked_where(matrix == -1, matrix)
 
 
-def tree_rules(obs, acs, feature_names:list|None=None, tree_args:dict|None=None):
-    if feature_names is None: feature_names = ['x', 'y']
-    if tree_args is None:
-        tree_args = {
-            'max_depth': 3,
-            'min_samples_leaf': 1,
-            'ccp_alpha': 0
-        }
-    tree = DecisionTreeClassifier(**tree_args)
-    tree.fit(obs, acs)
-    return export_text(tree, feature_names=feature_names)
+def remove_redundancies(graph: nx.DiGraph):
+    while True:
+        changed = False
+        for node in list(graph.nodes):
+            if node not in graph: continue
+            children = list(graph.successors(node))
+
+            if len(children) == 2 and all(graph.out_degree(c) == 0 for c in children):
+                if graph.nodes[children[0]]["label"] == graph.nodes[children[1]]["label"]:
+                    label = graph.nodes[children[0]]["label"]
+                    graph.remove_nodes_from(children)
+                    graph.nodes[node]["label"] = label
+                    changed = True
+
+        if not changed: break
+    return graph
+
+
+def find_best_split(states: np.ndarray, counts: np.ndarray, rng:list):
+    best_score, best_feature, best_split = np.inf, None, None
+
+    for feature in range(len(states[0])):
+        feature_score, feature_split = np.inf, None
+        splits = range(*rng[feature]) if all_ints(rng[feature]) else np.linspace(*rng[feature], 10)
+        for split in splits:
+            mask = states[:, feature] < split
+            less, more = counts[mask].sum(axis=0), counts[~mask].sum(axis=0)
+            if less.sum() == 0 or more.sum() == 0: continue
+
+            e_less, e_more = entropy(less / less.sum()), entropy(more / more.sum())
+            if (score := max(e_less, e_more)) < feature_score:
+                feature_score, feature_split = score, split
+
+        if feature_score < best_score:
+            best_score, best_feature, best_split = feature_score, feature, feature_split
+
+    return best_feature, best_split
+
+
+def split_range(rng:list, feature:int, split:int):
+    left, right = deepcopy(rng), deepcopy(rng)
+    left[feature] = (rng[feature][0], split)
+    right[feature] = (split, rng[feature][1],)
+    return left, right
