@@ -32,16 +32,15 @@ class EmpiricalDistribution:
 
         return self
 
-    def probs(self, coords:list|tuple, alpha:float|int=0.0):
+    def probs(self, coords:list|tuple):
         coords = self.feature_map(coords)
         if not coords in self.visited(): return np.array([1 / self.n] * self.n)
 
         probs = self.counts[coords]
-        assert sum(probs) <= self.trajectories_num, f'{probs} >= {self.trajectories_num}'
+        assert int(sum(probs)) <= self.trajectories_num, f'{probs} > {self.trajectories_num}'
+
         unvisited = (self.trajectories_num - sum(probs)) * np.array([1 / self.n] * self.n)
         return (probs + unvisited) / np.sum(probs + unvisited)
-
-
 
 
     def act(self, coords, deterministic:bool=True):
