@@ -3,7 +3,7 @@
 # TRACE: Trajectory-based Clustering for Explaining Multi-Objective Reinforcement Learning
 Developed at Vrije Universiteit Brussel (VUB) as part of the FWO-SBO project [ANTICIPATE](https://anticipate.vub.be/).
 
-**Paper:** [Multi-Objective Decision Making Workshop @ IJCAI-ECAI 2026](https://openreview.net/pdf?id=pCWrKbpZP5) <br>
+**Paper:** [Multi-Objective Decision Making Workshop @ IJCAI-ECAI 2026](https://modem2026.vub.ac.be/papers/MODeM_2026_paper_16.pdf) <br>
 **Dependencies:** Python 3.11<br>
 **Contact:** Emily Palaska (emily.palaska@vub.be)<br>
 **License:** GNU General Public License v3.0
@@ -17,9 +17,16 @@ Developed at Vrije Universiteit Brussel (VUB) as part of the FWO-SBO project [AN
 
 
 ## ⚡ Quickstart
-Clone this repository with `git clone https://github.com/ANTICIPATE-SBO/trace`<br>
-Install requirements with `pip install -r requirements.txt`<br>
-
+Clone this repository and install requirements in a Python environment using: 
+```bash
+git clone https://github.com/ANTICIPATE-SBO/trace
+pip install -r requirements.txt
+```
+Run tests using an IDE or from a terminal with:
+```bash
+cd tests/
+python3 graphs.py
+```
 
 ## ⚙️ Example of usage
 
