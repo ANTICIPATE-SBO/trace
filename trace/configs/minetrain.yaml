@@ -6,13 +6,13 @@ actions:
   0: 'Mine'
   1: 'Left'
   2: 'Right'
-  3: 'Accelerate'
+  3: 'Acc/te'
   4: 'Brake'
   5: 'None'
 reward_dim: (3,)
-observations_features: ['x', 'y', 'speed', 'sin', 'cos', 'ore1load', 'ore2load']
-observations_high: [1., 1., 1., 1., 1., 1., 1.]
-observations_low: [-1., -1., -1., -1., -1., -1., -1.]
+features: ['x', 'y', 'speed', 'sin', 'cos', 'ore1load', 'ore2load']
+obs_high: [1., 1., 1., 1., 1., 1., 1.]
+obs_low: [-1., -1., -1., -1., -1., -1., -1.]
 gamma: 1.
 num_steps: 1000
 tolerance: 1e-15

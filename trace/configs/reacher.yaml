@@ -13,7 +13,7 @@ actions:
   7: '(1, 0)'
   8: '(1, 1)'
 reward_dim: (4,)
-observations_features: ['cos(th1)', 'cos(th2)', 'sin(th1)', 'sin(th2)', 'angvel1', 'angvel2']
+features: ['cos(th1)', 'cos(th2)', 'sin(th1)', 'sin(th2)', 'angvel1', 'angvel2']
 observations_high: [ [ 40, -50, -50, -50 ], [ -50, 40, -50, -50 ], [ -50, -50, 40, -50 ], [ -50, -50, -50, 40 ] ]
 observations_low:  [ [ -50, -50, -50, -50 ], [ -50, -50, -50, -50 ], [ -50, -50, -50, -50 ], [ -50, -50, -50, -50 ] ]
 gamma: 0.99
